@@ -11,8 +11,9 @@ import {
   setSession,
   clearSession,
   refreshPlayer,
-  validateUsername
-} from "./auth.js?v=1786964749";
+  validateUsername,
+  resetPasswordWithRecoveryCode
+} from "./auth.js?v=1786965190";
 
 let debounceTimer = null;
 
@@ -80,16 +81,21 @@ export async function initAuthScreen(onAuthenticated) {
   const tabRegister = document.getElementById("auth-tab-register");
   const formLogin = document.getElementById("auth-form-login");
   const formRegister = document.getElementById("auth-form-register");
+  const formForgot = document.getElementById("auth-form-forgot");
+  const authTabs = document.querySelector(".auth-tabs");
 
-  tabLogin.addEventListener("click", () => switchTab("login"));
-  tabRegister.addEventListener("click", () => switchTab("register"));
+  tabLogin.addEventListener("click", () => switchView("login"));
+  tabRegister.addEventListener("click", () => switchView("register"));
+  document.getElementById("auth-forgot-link").addEventListener("click", () => switchView("forgot"));
+  document.getElementById("auth-back-to-login").addEventListener("click", () => switchView("login"));
 
-  function switchTab(which) {
-    const isLogin = which === "login";
-    tabLogin.classList.toggle("active", isLogin);
-    tabRegister.classList.toggle("active", !isLogin);
-    formLogin.hidden = !isLogin;
-    formRegister.hidden = isLogin;
+  function switchView(which) {
+    tabLogin.classList.toggle("active", which === "login");
+    tabRegister.classList.toggle("active", which === "register");
+    formLogin.hidden = which !== "login";
+    formRegister.hidden = which !== "register";
+    formForgot.hidden = which !== "forgot";
+    authTabs.hidden = which === "forgot";
   }
 
   // ---- Login ----
@@ -169,13 +175,74 @@ export async function initAuthScreen(onAuthenticated) {
       // Serverseitige, verbindliche Prüfung + Anlage — der Live-Check
       // oben ist nur Komfort, hier wird nochmal sauber abgelehnt, falls
       // der Name inzwischen (z.B. durch einen anderen Nutzer) vergeben wurde.
-      const player = await registerPlayer(username, password);
+      const { player, recoveryCode } = await registerPlayer(username, password);
       setSession(player.username);
-      onAuthenticated(player);
+      showRecoveryCodeOnce(recoveryCode, () => onAuthenticated(player));
     } catch (err) {
       errorBox.textContent = err.message;
       btn.disabled = false;
       btn.textContent = "Konto erstellen";
     }
   });
+
+  // ---- Passwort vergessen: Absenden ----
+  formForgot.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const username = document.getElementById("forgot-username").value;
+    const code = document.getElementById("forgot-code").value;
+    const newPassword = document.getElementById("forgot-password").value;
+    const errorBox = document.getElementById("forgot-error");
+    const btn = document.getElementById("forgot-submit");
+    errorBox.textContent = "";
+    if (!username.trim() || !code.trim() || !newPassword) {
+      errorBox.textContent = "Bitte alle Felder ausfüllen.";
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = "Setze zurück…";
+    try {
+      await resetPasswordWithRecoveryCode(username, code, newPassword);
+      showToastLike("Passwort wurde zurückgesetzt. Du kannst dich jetzt anmelden.");
+      document.getElementById("login-username").value = username.trim();
+      switchView("login");
+      e.target.reset();
+    } catch (err) {
+      errorBox.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Passwort zurücksetzen";
+    }
+  });
+}
+
+// Zeigt den einmaligen Wiederherstellungscode blockierend an, bevor
+// die App startet — der Code ist danach nirgends mehr abrufbar.
+function showRecoveryCodeOnce(code, onContinue) {
+  const authScreen = document.getElementById("auth-screen");
+  authScreen.innerHTML = `
+    <div class="auth-card">
+      <div class="auth-brand">✦ SPRACHBRETT</div>
+      <div class="auth-sub">Konto erstellt! Speichere diesen Wiederherstellungscode gut — er wird nur JETZT angezeigt und ersetzt ein "Passwort vergessen" per E-Mail.</div>
+      <div class="recovery-code-box">${escapeHtmlLocal(code)}</div>
+      <div class="auth-sub" style="margin-top:0;">Notiere ihn z.B. in deinem Passwort-Manager. Ohne ihn ist der Zugang bei vergessenem Passwort nicht wiederherstellbar (außer über einen Admin).</div>
+      <button type="button" class="btn btn-primary auth-submit" id="recovery-continue">Code gespeichert — weiter</button>
+    </div>
+  `;
+  document.getElementById("recovery-continue").addEventListener("click", onContinue);
+}
+
+function escapeHtmlLocal(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// Minimaler Toast-Ersatz, solange wir noch auf dem Auth-Screen sind
+// (das eigentliche Toast-System aus toast.js läuft erst in der App).
+function showToastLike(msg) {
+  const el = document.createElement("div");
+  el.textContent = msg;
+  el.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg-panel);border:1px solid var(--accent);color:var(--text);padding:10px 16px;border-radius:8px;font-size:13px;z-index:999;";
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
 }

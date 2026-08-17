@@ -4,13 +4,13 @@
 // im Zeichenprogramm-Vorbild)
 // ============================================================
 
-import { LANGUAGES, getFlatLessons } from "./data.js?v=1786964749";
-import { exportUser, importUserFromFile, resetUser, saveUser } from "./storage.js?v=1786964749";
-import { levelFromXp } from "./streak.js?v=1786964749";
-import { BADGES } from "./badges.js?v=1786964749";
-import { showToast } from "./toast.js?v=1786964749";
-import { clearSession, changeOwnPassword, deleteOwnAccount } from "./auth.js?v=1786964749";
-import { wirePasswordToggles } from "./auth-ui.js?v=1786964749";
+import { LANGUAGES, getFlatLessons } from "./data.js?v=1786965190";
+import { exportUser, importUserFromFile, resetUser, saveUser } from "./storage.js?v=1786965190";
+import { levelFromXp } from "./streak.js?v=1786965190";
+import { BADGES } from "./badges.js?v=1786965190";
+import { showToast } from "./toast.js?v=1786965190";
+import { clearSession, changeOwnPassword, deleteOwnAccount, regenerateRecoveryCode } from "./auth.js?v=1786965190";
+import { wirePasswordToggles } from "./auth-ui.js?v=1786965190";
 
 export function renderProfil(root, user, persist) {
   const { level, xpIntoLevel, xpForNextLevel } = levelFromXp(user.xp);
@@ -55,6 +55,22 @@ export function renderProfil(root, user, persist) {
           <div class="auth-error" id="pw-change-error"></div>
           <button type="submit" class="btn" id="pw-change-submit" style="align-self:flex-start;">Passwort speichern</button>
         </form>
+      </details>
+
+      <details style="margin-top:14px;">
+        <summary style="cursor:pointer;font-weight:600;color:var(--text-dim);font-size:13px;">Wiederherstellungscode neu erzeugen</summary>
+        <div style="margin-top:12px;max-width:340px;">
+          <div class="view-subtitle" style="margin-bottom:10px;">
+            Erzeugt einen neuen "Passwort vergessen"-Code und macht den alten ungültig — nützlich, falls du den ursprünglichen Code verloren hast oder er schon benutzt wurde.
+          </div>
+          <div class="field" style="margin-bottom:10px;">
+            <label>Aktuelles Passwort zur Bestätigung</label>
+            <input class="text-field" type="password" id="recovery-regen-password" data-toggle autocomplete="current-password" />
+          </div>
+          <div class="auth-error" id="recovery-regen-error"></div>
+          <div id="recovery-regen-result"></div>
+          <button class="btn" id="recovery-regen-btn">Neuen Code erzeugen</button>
+        </div>
       </details>
 
       <details style="margin-top:14px;">
@@ -134,6 +150,21 @@ export function renderProfil(root, user, persist) {
     } finally {
       btn.disabled = false;
       btn.textContent = "Passwort speichern";
+    }
+  });
+
+  document.getElementById("recovery-regen-btn").addEventListener("click", async () => {
+    const password = document.getElementById("recovery-regen-password").value;
+    const errorBox = document.getElementById("recovery-regen-error");
+    const resultBox = document.getElementById("recovery-regen-result");
+    errorBox.textContent = "";
+    resultBox.innerHTML = "";
+    if (!password) { errorBox.textContent = "Bitte Passwort eingeben."; return; }
+    try {
+      const code = await regenerateRecoveryCode(user.name, password);
+      resultBox.innerHTML = `<div class="recovery-code-box">${escapeAttr(code)}</div><div class="view-subtitle">Jetzt sicher speichern — wird nicht nochmal angezeigt.</div>`;
+    } catch (err) {
+      errorBox.textContent = err.message;
     }
   });
 

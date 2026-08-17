@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=1786964749" />
+<link rel="stylesheet" href="style.css?v=1786965190" />
 </head>
 <body>
 
@@ -42,6 +42,7 @@
       </div>
       <div class="auth-error" id="login-error"></div>
       <button type="submit" class="btn btn-primary auth-submit" id="login-submit">Anmelden</button>
+      <button type="button" class="auth-link" id="auth-forgot-link">Passwort vergessen?</button>
     </form>
 
     <form id="auth-form-register" class="auth-form" hidden>
@@ -60,6 +61,27 @@
       </div>
       <div class="auth-error" id="register-error"></div>
       <button type="submit" class="btn btn-primary auth-submit" id="register-submit">Konto erstellen</button>
+    </form>
+
+    <form id="auth-form-forgot" class="auth-form" hidden>
+      <div class="auth-sub" style="margin:0 0 4px;text-align:left;">
+        Gib deinen Benutzernamen und deinen Wiederherstellungscode ein (den du bei der Registrierung einmalig bekommen hast) sowie ein neues Passwort.
+      </div>
+      <div class="field">
+        <label>Benutzername</label>
+        <input class="text-field" type="text" id="forgot-username" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>Wiederherstellungscode</label>
+        <input class="text-field" type="text" id="forgot-code" placeholder="XXXX-XXXX-XXXX" style="font-family:var(--font-mono);text-transform:uppercase;" />
+      </div>
+      <div class="field">
+        <label>Neues Passwort</label>
+        <input class="text-field" type="password" id="forgot-password" data-toggle autocomplete="new-password" placeholder="Mindestens 4 Zeichen" />
+      </div>
+      <div class="auth-error" id="forgot-error"></div>
+      <button type="submit" class="btn btn-primary auth-submit" id="forgot-submit">Passwort zurücksetzen</button>
+      <button type="button" class="auth-link" id="auth-back-to-login">Zurück zur Anmeldung</button>
     </form>
   </div>
 </div>
@@ -150,6 +172,6 @@
 <!-- Toast-Container für Badge-/Level-Benachrichtigungen -->
 <div id="toast-root" class="toast-root"></div>
 
-<script type="module" src="app.js?v=1786964749"></script>
+<script type="module" src="app.js?v=1786965190"></script>
 </body>
 </html>
