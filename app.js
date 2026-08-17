@@ -4,11 +4,11 @@
 // Werkzeugleiste/Navigation und verdrahtet globale Aktionen.
 // ============================================================
 
-import { loadUser, saveUser } from "./storage.js?v=1786964543";
-import { checkStreakOnLoad, regenerateHearts } from "./streak.js?v=1786964543";
-import { initWorkspace } from "./workspace.js?v=1786964543";
-import { initSidebarActions } from "./profile.js?v=1786964543";
-import { initAuthScreen } from "./auth-ui.js?v=1786964543";
+import { loadUser, saveUser } from "./storage.js?v=1786964749";
+import { checkStreakOnLoad, regenerateHearts } from "./streak.js?v=1786964749";
+import { initWorkspace } from "./workspace.js?v=1786964749";
+import { initSidebarActions } from "./profile.js?v=1786964749";
+import { initAuthScreen } from "./auth-ui.js?v=1786964749";
 
 document.addEventListener("DOMContentLoaded", () => {
   initAuthScreen((player) => {

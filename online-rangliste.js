@@ -15,7 +15,7 @@
 // also gar nicht erst an die Online-Rangliste gesendet.
 // ============================================================
 
-import { FIREBASE_CONFIG, FIREBASE_ENABLED } from "./firebase-config.js?v=1786964543";
+import { FIREBASE_CONFIG, FIREBASE_ENABLED } from "./firebase-config.js?v=1786964749";
 
 const SDK_BASE = "https://www.gstatic.com/firebasejs/12.17.1";
 

@@ -3,9 +3,10 @@
 # build.sh — Vor jedem Push einmal ausführen!
 #
 # Setzt automatisch einen neuen Cache-Buster-Zeitstempel
-# (?v=<Unix-Zeit>) in index.html und alle js/*.js-Importe, damit
-# GitHub Pages/Browser nach einem Update garantiert die neuen
-# Dateien laden statt eine alte Version aus dem Cache zu zeigen.
+# (?v=<Unix-Zeit>) in index.html (Script- UND CSS-Tag) und alle
+# *.js-Importe, damit GitHub Pages/Browser nach einem Update
+# garantiert die neuen Dateien laden statt eine alte Version aus
+# dem Cache zu zeigen.
 #
 # Nutzung:
 #   ./build.sh
