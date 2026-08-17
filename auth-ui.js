@@ -12,7 +12,7 @@ import {
   clearSession,
   refreshPlayer,
   validateUsername
-} from "./auth.js?v=1786964007";
+} from "./auth.js?v=1786964543";
 
 let debounceTimer = null;
 

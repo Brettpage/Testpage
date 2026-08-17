@@ -64,6 +64,12 @@ button, input {
   height: 100vh;
 }
 
+/* Generelle Absicherung: das hidden-Attribut muss IMMER gewinnen,
+   egal welche display-Regel eine Klasse sonst setzt. Ohne das kann
+   ein Element mit hidden trotzdem sichtbar/scrollbar bleiben, wenn
+   irgendeine Klassenregel dieselbe CSS-Spezifität hat. */
+[hidden] { display: none !important; }
+
 /* ---------- Topbar ---------- */
 
 .topbar {
