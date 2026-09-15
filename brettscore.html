@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BrettScore – Fußball Live-Ticker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0: #0A0F0D;
+    --bg-1: #131F1A;
+    --bg-2: #1A2A23;
+    --bg-3: #22352C;
+    --line: #223229;
+    --grass: #1F7A4D;
+    --grass-deep: #14502F;
+    --accent: #C8FF4D;
+    --text-hi: #F2F5F1;
+    --text-lo: #8FA69A;
+    --text-mid: #C4D3CB;
+    --red: #FF5D5D;
+    --yellow: #E8C547;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg-0);
+    color: var(--text-hi);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, .num { font-family: 'Space Grotesk', sans-serif; }
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; }
+
+  /* ---------- Layout ---------- */
+  .shell { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+
+  .sidebar {
+    background: var(--bg-1); border-right: 1px solid var(--line);
+    padding: 24px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+  .brand { display: flex; align-items: baseline; gap: 2px; margin-bottom: 20px; padding-left: 4px; }
+  .brand .b1 { font-size: 22px; font-weight: 700; color: var(--text-hi); }
+  .brand .b2 { font-size: 22px; font-weight: 700; color: var(--accent); }
+
+  .api-status {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--text-lo);
+    padding: 8px 10px; margin-bottom: 18px;
+    background: var(--bg-2); border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line);
+  }
+  .api-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+  .api-status.connected .dot { background: var(--accent); }
+  .api-status:hover { border-color: var(--grass); }
+
+  .side-label { font-size: 12px; color: var(--text-lo); margin: 20px 0 10px 4px; }
+
+  .league-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 10px; border-radius: 8px; font-size: 14px; color: var(--text-mid);
+    cursor: pointer; margin-bottom: 2px;
+  }
+  .league-item:hover { background: var(--bg-2); color: var(--text-hi); }
+  .league-item.active { background: var(--bg-2); color: var(--text-hi); box-shadow: inset 3px 0 0 var(--accent); }
+  .league-item .count { font-size: 12px; color: var(--text-lo); background: var(--bg-0); border-radius: 20px; padding: 1px 8px; }
+  .league-item.active .count { color: var(--accent); }
+  .flag { display: inline-flex; width: 22px; height: 16px; margin-right: 10px; border-radius: 2px; overflow:hidden; background: var(--grass-deep); align-items: center; justify-content: center; vertical-align: middle; }
+  .flag img { width: 100%; height: 100%; object-fit: cover; }
+
+  .nav-tabs { display: flex; gap: 6px; margin-bottom: 4px; }
+  .nav-tab {
+    flex: 1; text-align: center; padding: 8px 4px; font-size: 12px;
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; color: var(--text-lo);
+  }
+  .nav-tab.active { background: var(--accent); color: #0A0F0D; border-color: var(--accent); font-weight: 600; }
+
+  .main { padding: 24px 36px 60px; max-width: 980px; }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .top-bar h1 { font-size: 26px; margin: 0; font-weight: 600; }
+  .clock { font-size: 13px; color: var(--text-lo); font-variant-numeric: tabular-nums; }
+  .refresh-note { font-size: 11px; color: var(--text-lo); }
+
+  .date-strip { display: flex; gap: 8px; margin: 20px 0 26px; border-bottom: 1px solid var(--line); padding-bottom: 16px; flex-wrap: wrap; }
+  .date-pill { padding: 7px 16px; border-radius: 20px; font-size: 13px; color: var(--text-lo); background: transparent; border: 1px solid var(--line); }
+  .date-pill.active { background: var(--accent); color: #0A0F0D; border-color: var(--accent); font-weight: 600; }
+
+  .live-strip {
+    display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(90deg, var(--grass-deep), transparent 80%);
+    border: 1px solid var(--grass); border-radius: 10px; padding: 10px 16px; margin-bottom: 28px;
+    font-size: 13px; color: var(--text-mid);
+  }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.6s infinite; flex-shrink: 0; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(200,255,77,0.55);} 70% { box-shadow: 0 0 0 8px rgba(200,255,77,0);} 100% { box-shadow: 0 0 0 0 rgba(200,255,77,0);} }
+  .live-strip b { color: var(--accent); font-weight: 600; }
+
+  .empty-state { padding: 60px 20px; text-align: center; color: var(--text-lo); }
+  .empty-state h3 { color: var(--text-mid); margin-bottom: 8px; }
+  .btn {
+    background: var(--accent); color: #0A0F0D; border: none; border-radius: 8px;
+    padding: 10px 18px; font-size: 13px; font-weight: 600;
+  }
+  .btn.ghost { background: transparent; color: var(--text-mid); border: 1px solid var(--line); }
+
+  .league-group { margin-bottom: 30px; }
+  .league-head { display: flex; align-items: center; gap: 10px; padding: 4px 4px 12px; border-bottom: 1px solid var(--line); margin-bottom: 4px; cursor: pointer; }
+  .league-head .flag-lg { width: 26px; height: 18px; border-radius: 3px; overflow: hidden; background: var(--grass-deep); display: flex; align-items: center; justify-content: center; }
+  .league-head .flag-lg img { width: 100%; height: 100%; object-fit: cover; }
+  .league-head .lname { font-size: 15px; font-weight: 600; }
+  .league-head .lcountry { font-size: 12px; color: var(--text-lo); }
+  .league-head .chev { margin-left: auto; color: var(--text-lo); font-size: 12px; transition: transform 0.15s ease; }
+  .league-group.collapsed .chev { transform: rotate(-90deg); }
+  .league-group.collapsed .match-row { display: none; }
+
+  .match-row {
+    display: grid; grid-template-columns: 46px 1fr 40px 26px; align-items: center; gap: 10px;
+    padding: 11px 4px; border-bottom: 1px solid rgba(34,50,41,0.6); font-size: 14px; cursor: pointer;
+  }
+  .match-row:hover { background: var(--bg-1); border-radius: 6px; }
+  .m-status { font-size: 12px; color: var(--text-lo); }
+  .m-status.live { color: var(--accent); font-weight: 600; }
+  .m-teams { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .m-team { display: flex; align-items: center; gap: 8px; color: var(--text-mid); }
+  .m-team.winner { color: var(--text-hi); font-weight: 600; }
+  .m-crest { width: 18px; height: 18px; border-radius: 4px; background: var(--bg-2); flex-shrink: 0; object-fit: contain; }
+  .m-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .m-score { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; font-family: 'Space Grotesk', sans-serif; font-weight: 600; }
+  .m-score span.live-score { color: var(--accent); }
+  .m-fav { color: var(--text-lo); font-size: 15px; text-align: center; }
+
+  /* ---------- Standings ---------- */
+  table.standings { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.standings th { text-align: left; color: var(--text-lo); font-weight: 500; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  table.standings td { padding: 9px 6px; border-bottom: 1px solid rgba(34,50,41,0.5); color: var(--text-mid); }
+  table.standings td.team { display: flex; align-items: center; gap: 8px; color: var(--text-hi); }
+  table.standings td.num, table.standings th.num { text-align: center; }
+  .zone-cl { box-shadow: inset 3px 0 0 var(--accent); }
+  .zone-rel { box-shadow: inset 3px 0 0 var(--red); }
+
+  /* ---------- Modal ---------- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(6,10,8,0.75); backdrop-filter: blur(3px);
+    display: none; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 50; overflow-y: auto;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg-1); border: 1px solid var(--line); border-radius: 14px;
+    width: 100%; max-width: 640px; overflow: hidden;
+  }
+  .modal-head { padding: 20px 22px; background: var(--bg-2); border-bottom: 1px solid var(--line); }
+  .modal-head .mh-league { font-size: 12px; color: var(--text-lo); margin-bottom: 10px; }
+  .modal-head .mh-score { display: flex; align-items: center; justify-content: center; gap: 24px; }
+  .mh-team { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; }
+  .mh-team img { width: 40px; height: 40px; object-fit: contain; }
+  .mh-team span { font-size: 13px; text-align: center; color: var(--text-mid); }
+  .mh-center { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .mh-center .score { font-size: 30px; font-weight: 700; font-family: 'Space Grotesk'; }
+  .mh-center .status { font-size: 12px; color: var(--accent); }
+  .close-btn {
+    position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--text-lo); font-size: 20px;
+  }
+  .modal-body { position: relative; }
+
+  .tabs { display: flex; border-bottom: 1px solid var(--line); }
+  .tab { flex: 1; text-align: center; padding: 12px; font-size: 13px; color: var(--text-lo); border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--accent); border-color: var(--accent); }
+  .tab-panel { display: none; padding: 20px 22px; max-height: 60vh; overflow-y: auto; }
+  .tab-panel.active { display: block; }
+
+  /* Lineups */
+  .pitch {
+    background: repeating-linear-gradient(0deg, var(--grass) 0 40px, var(--grass-deep) 40px 80px);
+    border-radius: 10px; padding: 16px 8px; margin-bottom: 16px;
+  }
+  .pitch-row { display: flex; justify-content: space-around; margin-bottom: 14px; }
+  .p-player { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; color: #fff; text-align: center; width: 56px; }
+  .p-num { width: 22px; height: 22px; border-radius: 50%; background: var(--bg-0); border: 1px solid var(--accent); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--accent); }
+  .lineup-meta { font-size: 12px; color: var(--text-lo); margin-bottom: 10px; display: flex; justify-content: space-between; }
+  .subs-list { font-size: 13px; color: var(--text-mid); line-height: 1.9; }
+  .subs-list b { color: var(--text-lo); font-weight: 500; font-size: 11px; display: block; margin: 10px 0 4px; }
+
+  /* Events */
+  .event-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid rgba(34,50,41,0.5); font-size: 13px; }
+  .event-min { width: 34px; color: var(--text-lo); font-family: 'Space Grotesk'; flex-shrink: 0; }
+  .event-icon { width: 18px; text-align: center; flex-shrink: 0; }
+  .event-team { margin-left: auto; font-size: 11px; color: var(--text-lo); }
+
+  /* Stats */
+  .stat-row { margin-bottom: 14px; }
+  .stat-labels { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; color: var(--text-mid); }
+  .stat-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--bg-2); }
+  .stat-bar .h { background: var(--accent); }
+  .stat-bar .a { background: var(--text-lo); }
+
+  /* Settings modal */
+  .settings-body { padding: 22px; }
+  .settings-body label { font-size: 12px; color: var(--text-lo); display: block; margin-bottom: 6px; }
+  .settings-body input {
+    width: 100%; background: var(--bg-0); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; color: var(--text-hi); font-size: 14px; margin-bottom: 14px;
+  }
+  .settings-body .hint { font-size: 12px; color: var(--text-lo); margin-bottom: 18px; line-height: 1.6; }
+  .settings-body .hint a { color: var(--accent); text-decoration: underline; }
+  .settings-actions { display: flex; gap: 10px; }
+  .err-msg { color: var(--red); font-size: 12px; margin-top: -8px; margin-bottom: 12px; min-height: 14px; }
+
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg-0); }
+  ::-webkit-scrollbar-thumb { background: var(--bg-2); border-radius: 4px; }
+
+  @media (max-width: 820px) {
+    .shell { grid-template-columns: 1fr; }
+    .sidebar { position: static; height: auto; }
+    .main { padding: 18px; }
+    .match-row { grid-template-columns: 40px 1fr 36px 20px; font-size: 13px; }
+    .mh-team img { width: 30px; height: 30px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><span class="b1">Brett</span><span class="b2">Score</span></div>
+
+    <div class="nav-tabs">
+      <div class="nav-tab active" data-view="matches">Spiele</div>
+      <div class="nav-tab" data-view="table">Tabelle</div>
+    </div>
+
+    <div class="side-label">LIGEN</div>
+    <div id="leagueNav">
+      <div class="league-item active" data-league="all"><span>Alle Spiele</span><span class="count" id="cntAll">–</span></div>
+      <div class="league-item" data-league="BL1"><span><span class="flag"><img src="https://crests.football-data.org/bl1.png"></span>Bundesliga</span><span class="count">–</span></div>
+      <div class="league-item" data-league="PL"><span><span class="flag"><img src="https://crests.football-data.org/PL.png"></span>Premier League</span><span class="count">–</span></div>
+      <div class="league-item" data-league="CL"><span><span class="flag"><img src="https://crests.football-data.org/CL.png"></span>Champions League</span><span class="count">–</span></div>
+      <div class="league-item" data-league="PD"><span><span class="flag"><img src="https://crests.football-data.org/PD.png"></span>La Liga</span><span class="count">–</span></div>
+      <div class="league-item" data-league="SA"><span><span class="flag"><img src="https://crests.football-data.org/SA.png"></span>Serie A</span><span class="count">–</span></div>
+      <div class="league-item" data-league="FL1"><span><span class="flag"><img src="https://crests.football-data.org/FL1.png"></span>Ligue 1</span><span class="count">–</span></div>
+    </div>
+    <div class="side-label" style="margin-top:24px; line-height:1.5;">Aufstellungen erscheinen ca. 40 Min. vor Anpfiff.</div>
+  </aside>
+
+  <main class="main">
+    <div class="top-bar">
+      <h1 id="viewTitle">Live-Ticker</h1>
+      <div style="text-align:right">
+        <div class="clock" id="clock"></div>
+        <div class="refresh-note" id="refreshNote"></div>
+      </div>
+    </div>
+
+    <div class="date-strip" id="dateStrip"></div>
+
+    <div class="live-strip" id="liveStrip" style="display:none;">
+      <span class="live-dot"></span>
+      <span><b id="liveCount">0</b> Spiele laufen gerade live</span>
+    </div>
+
+    <div id="content"></div>
+  </main>
+</div>
+
+<!-- Match Detail Modal -->
+<div class="modal-overlay" id="matchModal">
+  <div class="modal" style="position:relative;">
+    <button class="close-btn" onclick="closeModal('matchModal')">✕</button>
+    <div class="modal-head" id="modalHead"></div>
+    <div class="modal-body">
+      <div class="tabs">
+        <div class="tab active" data-tab="events">Events</div>
+        <div class="tab" data-tab="lineups">Aufstellung</div>
+        <div class="tab" data-tab="stats">Statistik</div>
+      </div>
+      <div class="tab-panel active" id="panel-events"></div>
+      <div class="tab-panel" id="panel-lineups"></div>
+      <div class="tab-panel" id="panel-stats"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   BrettScore — echte Daten via Highlightly
+   ========================================================= */
+
+const API_HOST = "https://brettsore.pichler-simon2014.workers.dev";
+let currentView = "matches";
+let currentLeague = "all";
+let currentDateOffset = 0; // 0 = heute
+let fixturesCache = [];
+
+const MAIN_LEAGUE_CODES = ["BL1", "PL", "CL", "PD", "SA", "FL1"];
+const MAIN_LEAGUES = {
+  BL1: { name: "Bundesliga", leagueName: "Bundesliga", countryName: "Germany" },
+  PL:  { name: "Premier League", leagueName: "Premier League", countryName: "England" },
+  CL:  { name: "Champions League", leagueName: "UEFA Champions League" },
+  PD:  { name: "La Liga", leagueName: "La Liga", countryName: "Spain" },
+  SA:  { name: "Serie A", leagueName: "Serie A", countryName: "Italy" },
+  FL1: { name: "Ligue 1", leagueName: "Ligue 1", countryName: "France" },
+};
+let hlLeagueMeta = {}; // code -> { id, season, logo, name }
+let hlReady = null;
+
+function fmtDate(offset) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0, 10);
+}
+
+async function apiGetHL(path, params) {
+  const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+  let res;
+  try {
+    res = await fetch(`${API_HOST}/hl${path}${qs}`);
+  } catch (networkErr) {
+    throw new Error("Netzwerk-/CORS-Fehler beim Zugriff auf den BrettScore-Proxy (Highlightly) — Anfrage kam nicht durch.");
+  }
+  if (!res.ok) {
+    let msg = "http-" + res.status;
+    try { const j = await res.json(); if (j.message) msg = j.message; } catch (e) {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+/* Liga-IDs & aktuelle Saison bei Highlightly einmalig nachschlagen und cachen. */
+async function ensureHLLeagues() {
+  if (hlReady) return hlReady;
+  hlReady = (async () => {
+    await Promise.all(Object.entries(MAIN_LEAGUES).map(async ([code, meta]) => {
+      try {
+        const params = { leagueName: meta.leagueName };
+        if (meta.countryName) params.countryName = meta.countryName;
+        const res = await apiGetHL("/leagues", params);
+        const list = res.data || res || [];
+        const found = list.find(l => l.name === meta.leagueName) || list[0];
+        if (found) {
+          const seasons = (found.seasons || []).map(s => s.season);
+          const latestSeason = seasons.length ? Math.max(...seasons) : new Date().getFullYear();
+          hlLeagueMeta[code] = { id: found.id, season: latestSeason, logo: found.logo, name: found.name };
+        }
+      } catch (e) { /* wird unten als Fehler pro Liga sichtbar */ }
+    }));
+  })();
+  return hlReady;
+}
+
+function openModal(id) { document.getElementById(id).classList.add("open"); }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+
+/* ---------- Date strip ---------- */
+function renderDateStrip() {
+  const strip = document.getElementById("dateStrip");
+  strip.innerHTML = "";
+  const labels = [
+    { off: -1, label: "Gestern" },
+    { off: 0, label: "Heute" },
+    { off: 1, label: "Morgen" },
+  ];
+  labels.forEach(l => {
+    const pill = document.createElement("div");
+    pill.className = "date-pill" + (l.off === currentDateOffset ? " active" : "");
+    pill.textContent = l.label;
+    pill.addEventListener("click", () => { currentDateOffset = l.off; renderDateStrip(); loadFixtures(); });
+    strip.appendChild(pill);
+  });
+}
+
+/* ---------- Nav ---------- */
+document.querySelectorAll(".nav-tab").forEach(t => {
+  t.addEventListener("click", () => {
+    document.querySelectorAll(".nav-tab").forEach(x => x.classList.remove("active"));
+    t.classList.add("active");
+    currentView = t.dataset.view;
+    document.getElementById("viewTitle").textContent = currentView === "matches" ? "Live-Ticker" : "Tabelle";
+    document.getElementById("dateStrip").style.display = currentView === "matches" ? "flex" : "none";
+    document.getElementById("liveStrip").style.display = "none";
+    loadCurrentView();
+  });
+});
+
+document.querySelectorAll(".league-item[data-league]").forEach(item => {
+  item.addEventListener("click", () => {
+    document.querySelectorAll(".league-item").forEach(i => i.classList.remove("active"));
+    item.classList.add("active");
+    currentLeague = item.dataset.league;
+    loadCurrentView();
+  });
+});
+
+function loadCurrentView() {
+  if (currentView === "matches") loadFixtures();
+  else loadStandings();
+}
+
+/* ---------- Empty / error states ---------- */
+function renderErrorState(msg) {
+  document.getElementById("content").innerHTML = `
+    <div class="empty-state">
+      <h3>Daten konnten nicht geladen werden</h3>
+      <p>${msg}</p>
+      <button class="btn ghost" onclick="loadCurrentView()">Erneut versuchen</button>
+    </div>`;
+}
+
+/* ---------- Fixtures ---------- */
+async function loadFixtures() {
+  const content = document.getElementById("content");
+  content.innerHTML = `<div class="empty-state">Lade Spiele…</div>`;
+  try {
+    await ensureHLLeagues();
+    const date = fmtDate(currentDateOffset);
+    const codes = currentLeague === "all" ? MAIN_LEAGUE_CODES : [currentLeague];
+    const errors = [];
+    const results = await Promise.all(codes.map(async code => {
+      const meta = hlLeagueMeta[code];
+      if (!meta) { errors.push(`${MAIN_LEAGUES[code]?.name || code}: Liga-ID bei Highlightly nicht gefunden`); return []; }
+      try {
+        const res = await apiGetHL("/matches", { leagueId: meta.id, date, timezone: "Europe/Vienna" });
+        return res.data || [];
+      } catch (e) {
+        errors.push(`${meta.name}: ${e.message}`);
+        return [];
+      }
+    }));
+    let all = [].concat(...results);
+    fixturesCache = all;
+    if (!all.length && errors.length) {
+      renderErrorState(errors.join("<br>"));
+      return;
+    }
+    renderFixtures(all);
+  } catch (e) {
+    renderErrorState(e.message);
+  }
+}
+
+function groupByLeague(matches) {
+  const map = {};
+  matches.forEach(m => {
+    const id = m.league.id;
+    if (!map[id]) map[id] = { league: m.league, matches: [] };
+    map[id].matches.push(m);
+  });
+  return Object.values(map);
+}
+
+const LIVE_STATES = ["First half", "Second half", "Half time", "Extra time", "Break time", "Penalties", "In progress"];
+function isLiveState(desc) { return LIVE_STATES.includes(desc); }
+function isFinishedState(desc) { return (desc || "").startsWith("Finished"); }
+
+function statusText(m) {
+  const desc = m.state?.description || "";
+  if (isLiveState(desc)) return m.state?.clock ? `${m.state.clock}'` : desc;
+  if (isFinishedState(desc)) return "Ende";
+  if (desc === "Postponed") return "Verschoben";
+  if (desc === "Suspended") return "Unterbrochen";
+  if (desc === "Cancelled") return "Abgesagt";
+  return new Date(m.date).toLocaleTimeString("de-AT", { hour: "2-digit", minute: "2-digit" });
+}
+
+function renderFixtures(matches) {
+  const content = document.getElementById("content");
+  const liveCount = matches.filter(m => isLiveState(m.state?.description)).length;
+  document.getElementById("liveStrip").style.display = liveCount > 0 ? "flex" : "none";
+  document.getElementById("liveCount").textContent = liveCount;
+
+  if (!matches.length) {
+    content.innerHTML = `<div class="empty-state"><h3>Keine Spiele an diesem Tag</h3><p>Für die gewählte Liga/Datum liegen keine Begegnungen vor.</p></div>`;
+    return;
+  }
+
+  const groups = groupByLeague(matches);
+  content.innerHTML = "";
+  groups.forEach(g => {
+    const group = document.createElement("div");
+    group.className = "league-group";
+    group.innerHTML = `
+      <div class="league-head">
+        <span class="flag-lg"><img src="${g.league.logo || ""}" onerror="this.style.display='none'"></span>
+        <span class="lname">${g.league.name}</span>
+        <span class="chev">▾</span>
+      </div>
+    `;
+    group.querySelector(".league-head").addEventListener("click", () => group.classList.toggle("collapsed"));
+
+    g.matches.forEach(m => {
+      const desc = m.state?.description || "";
+      const isLive = isLiveState(desc);
+      const isFT = isFinishedState(desc);
+      const scoreParts = (m.state?.score?.current || "- -").split(" - ");
+      const hs = scoreParts[0], as = scoreParts[1];
+      const homeWin = isFT && Number(hs) > Number(as);
+      const awayWin = isFT && Number(as) > Number(hs);
+      const row = document.createElement("div");
+      row.className = "match-row";
+      row.innerHTML = `
+        <div class="m-status ${isLive ? "live" : ""}">${statusText(m)}</div>
+        <div class="m-teams">
+          <div class="m-team ${homeWin ? "winner" : ""}"><img class="m-crest" src="${m.homeTeam.logo || ""}"><span class="m-name">${m.homeTeam.name}</span></div>
+          <div class="m-team ${awayWin ? "winner" : ""}"><img class="m-crest" src="${m.awayTeam.logo || ""}"><span class="m-name">${m.awayTeam.name}</span></div>
+        </div>
+        <div class="m-score">
+          <span class="${isLive ? "live-score" : ""}">${hs ?? "-"}</span>
+          <span class="${isLive ? "live-score" : ""}">${as ?? "-"}</span>
+        </div>
+        <div class="m-fav">☆</div>
+      `;
+      row.addEventListener("click", () => openMatch(m));
+      group.appendChild(row);
+    });
+    content.appendChild(group);
+  });
+}
+
+/* ---------- Match detail modal ---------- */
+async function openMatch(m) {
+  const head = document.getElementById("modalHead");
+  const scoreParts = (m.state?.score?.current || "- -").split(" - ");
+  head.innerHTML = `
+    <div class="mh-league">${m.league.name} — ${m.round || ""}</div>
+    <div class="mh-score">
+      <div class="mh-team"><img src="${m.homeTeam.logo || ""}"><span>${m.homeTeam.name}</span></div>
+      <div class="mh-center">
+        <div class="score">${scoreParts[0] ?? "-"} : ${scoreParts[1] ?? "-"}</div>
+        <div class="status">${statusText(m)}</div>
+      </div>
+      <div class="mh-team"><img src="${m.awayTeam.logo || ""}"><span>${m.awayTeam.name}</span></div>
+    </div>
+  `;
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.querySelector('.tab[data-tab="events"]').classList.add("active");
+  document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+  document.getElementById("panel-events").classList.add("active");
+
+  document.getElementById("panel-events").innerHTML = `<div class="empty-state">Lade…</div>`;
+  document.getElementById("panel-lineups").innerHTML = `<div class="empty-state">Lade…</div>`;
+  document.getElementById("panel-stats").innerHTML = `<div class="empty-state">Lade…</div>`;
+
+  openModal("matchModal");
+
+  const [detailRaw, lineups] = await Promise.all([
+    apiGetHL(`/matches/${m.id}`).catch(e => ({ __error: e.message })),
+    apiGetHL(`/lineups/${m.id}`).catch(e => ({ __error: e.message })),
+  ]);
+  const detail = Array.isArray(detailRaw) ? detailRaw[0] : detailRaw;
+
+  renderHLEvents(detail);
+  renderHLLineups(lineups, m);
+  renderHLStats(detail, m);
+}
+
+document.querySelectorAll(".tab").forEach(t => {
+  t.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+    t.classList.add("active");
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    document.getElementById("panel-" + t.dataset.tab).classList.add("active");
+  });
+});
+
+function eventIcon(type) {
+  const t = (type || "").toLowerCase();
+  if (t.includes("own goal")) return "⚽";
+  if (t.includes("goal") && !t.includes("var")) return "⚽";
+  if (t.includes("yellow")) return "🟨";
+  if (t.includes("red")) return "🟥";
+  if (t.includes("substitution")) return "🔁";
+  if (t.includes("var")) return "📺";
+  return "•";
+}
+
+function renderHLEvents(detail) {
+  const panel = document.getElementById("panel-events");
+  if (!detail || detail.__error) {
+    panel.innerHTML = `<div class="empty-state">Ereignisse konnten nicht geladen werden${detail?.__error ? ": " + detail.__error : ""}.</div>`;
+    return;
+  }
+  const events = detail.events || [];
+  if (!events.length) {
+    panel.innerHTML = `<div class="empty-state">Noch keine Ereignisse — Anpfiff steht noch aus oder Daten fehlen.</div>`;
+    return;
+  }
+  panel.innerHTML = events.map(e => `
+    <div class="event-row">
+      <div class="event-min">${e.time}'</div>
+      <div class="event-icon">${eventIcon(e.type)}</div>
+      <div><b>${e.player || ""}</b><div style="color:var(--text-lo); font-size:11px;">${e.type}${e.assist ? " · Vorlage: " + e.assist : ""}</div></div>
+      <div class="event-team">${e.team?.name || ""}</div>
+    </div>`).join("");
+}
+
+function renderHLLineups(lineups, m) {
+  const panel = document.getElementById("panel-lineups");
+  if (!lineups || lineups.__error || (!lineups.homeTeam && !lineups.awayTeam)) {
+    panel.innerHTML = `<div class="empty-state">Aufstellungen noch nicht veröffentlicht (meist ca. 40 Min. vor Anpfiff verfügbar).</div>`;
+    return;
+  }
+  const renderTeam = (team) => {
+    if (!team) return "";
+    const rows = (team.initialLineup || []).map(row => `
+      <div class="pitch-row">${row.map(p => `
+        <div class="p-player"><div class="p-num">${p.number ?? "-"}</div><span>${p.name}</span></div>
+      `).join("")}</div>`).join("");
+    const subs = (team.substitutes || []).map(s => `${s.number ?? "-"} · ${s.name}`).join("<br>");
+    return `
+      <div style="margin-bottom:24px;">
+        <div class="lineup-meta"><span><img src="${team.logo || ""}" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;">${team.name}</span><span>Formation: ${team.formation || "–"}</span></div>
+        <div class="pitch">${rows || "<div class='empty-state' style='padding:20px;color:#fff;'>Keine Startelf-Daten</div>"}</div>
+        <div class="subs-list"><b>ERSATZBANK</b>${subs || "–"}</div>
+      </div>`;
+  };
+  panel.innerHTML = renderTeam(lineups.homeTeam) + renderTeam(lineups.awayTeam);
+}
+
+function renderHLStats(detail, m) {
+  const panel = document.getElementById("panel-stats");
+  const stats = detail?.statistics;
+  if (!Array.isArray(stats) || !stats.length) {
+    panel.innerHTML = `<div class="empty-state">Statistiken noch nicht verfügbar.</div>`;
+    return;
+  }
+  const homeStats = stats.find(s => s.team?.id === m.homeTeam.id)?.statistics || [];
+  const awayStats = stats.find(s => s.team?.id === m.awayTeam.id)?.statistics || [];
+  panel.innerHTML = homeStats.map((h, i) => {
+    const a = awayStats[i];
+    const hv = parseFloat(h.value) || 0;
+    const av = parseFloat(a?.value) || 0;
+    const total = hv + av || 1;
+    return `
+      <div class="stat-row">
+        <div class="stat-labels"><span>${h.value}</span><span style="color:var(--text-lo)">${h.displayName}</span><span>${a?.value ?? "-"}</span></div>
+        <div class="stat-bar"><div class="h" style="width:${(hv / total) * 100}%"></div><div class="a" style="width:${(av / total) * 100}%"></div></div>
+      </div>`;
+  }).join("");
+}
+
+/* ---------- Standings ---------- */
+async function loadStandings() {
+  const content = document.getElementById("content");
+  content.innerHTML = `<div class="empty-state">Lade Tabelle…</div>`;
+  try {
+    await ensureHLLeagues();
+    const code = currentLeague === "all" || !MAIN_LEAGUES[currentLeague] ? "BL1" : currentLeague;
+    const meta = hlLeagueMeta[code];
+    if (!meta) { renderErrorState("Liga-ID bei Highlightly nicht gefunden."); return; }
+    const data = await apiGetHL("/standings", { leagueId: meta.id, season: meta.season });
+    const table = (data.groups && data.groups[0] && data.groups[0].standings) || [];
+    if (!table.length) { content.innerHTML = `<div class="empty-state">Keine Tabelle verfügbar.</div>`; return; }
+    content.innerHTML = `
+      <table class="standings">
+        <thead><tr>
+          <th>#</th><th>Team</th><th class="num">Sp</th><th class="num">S</th><th class="num">U</th><th class="num">N</th><th class="num">Tore</th><th class="num">Diff</th><th class="num">Pkt</th>
+        </tr></thead>
+        <tbody>
+          ${table.map(row => `
+            <tr class="${row.position <= 4 ? "zone-cl" : row.position > table.length - 3 ? "zone-rel" : ""}">
+              <td>${row.position}</td>
+              <td class="team"><img src="${row.team.logo || ""}" style="width:18px;height:18px;object-fit:contain;">${row.team.name}</td>
+              <td class="num">${row.total.games}</td>
+              <td class="num">${row.total.wins}</td>
+              <td class="num">${row.total.draws}</td>
+              <td class="num">${row.total.loses}</td>
+              <td class="num">${row.total.scoredGoals}:${row.total.receivedGoals}</td>
+              <td class="num">${row.total.scoredGoals - row.total.receivedGoals}</td>
+              <td class="num"><b>${row.points}</b></td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    renderErrorState(e.message);
+  }
+}
+
+/* ---------- Clock ---------- */
+function tick() {
+  document.getElementById("clock").textContent = new Date().toLocaleTimeString("de-AT", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+setInterval(tick, 1000); tick();
+
+/* ---------- Init ---------- */
+renderDateStrip();
+loadCurrentView();
+
+// Auto-refresh alle 60s
+setInterval(loadCurrentView, 60000);
+document.getElementById("refreshNote").textContent = "Aktualisiert automatisch alle 60 Sek.";
+</script>
+
+</body>
+</html>
