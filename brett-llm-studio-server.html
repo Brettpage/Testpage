@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brett LLM Studio – Server</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1e222b; --border: #2a2f3a;
+    --text: #e8e9ec; --muted: #8b91a0; --accent: #6c8cff; --accent2: #4a63cc;
+    --user-bubble: #26304a; --bot-bubble: #1e222b; --danger: #ff6b6b; --ok: #4caf7d;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; height:100vh; overflow:hidden; }
+  .layout { display:flex; height:100vh; }
+  .sidebar { width:280px; min-width:220px; background:var(--panel); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:16px; overflow-y:auto; }
+  .brand { font-weight:700; font-size:18px; display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .brand .dot { width:10px; height:10px; border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent); }
+  .brand-sub { font-size:11px; color:var(--muted); margin-bottom:18px; }
+  .newchat-btn { background:var(--accent); color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-size:14px; font-weight:600; margin-bottom:16px; }
+  .newchat-btn:hover { background:var(--accent2); }
+  .section-label { font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin:12px 0 6px; }
+  .setting-row { display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+  select, textarea, input[type=text] { background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:8px; font-size:13px; font-family:inherit; width:100%; }
+  textarea { resize:vertical; min-height:60px; }
+  .conn-status { font-size:12px; padding:10px; border-radius:8px; background:var(--panel2); border:1px solid var(--border); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .status-dot { width:8px; height:8px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+  .status-dot.ok { background:var(--ok); }
+  .status-dot.error { background:var(--danger); }
+  .status-dot.checking { background:#e6b800; animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+  .connect-btn { background:transparent; border:1px solid var(--accent); color:var(--accent); padding:8px; border-radius:6px; cursor:pointer; font-size:13px; width:100%; }
+  .connect-btn:hover { background:rgba(108,140,255,0.1); }
+  .chat-list { flex:1; overflow-y:auto; margin-top:6px; }
+  .chat-item { padding:8px 10px; border-radius:6px; font-size:13px; color:var(--muted); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:2px; }
+  .chat-item:hover { background:var(--panel2); }
+  .chat-item.active { background:var(--panel2); color:var(--text); }
+
+  .main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .topbar { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .topbar h1 { font-size:15px; margin:0; font-weight:600; }
+  .topbar .sub { font-size:12px; color:var(--muted); }
+  .clear-btn { background:transparent; border:1px solid var(--border); color:var(--muted); padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; }
+  .clear-btn:hover { color:var(--danger); border-color:var(--danger); }
+
+  .messages { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:14px; }
+  .msg { max-width:75%; padding:12px 16px; border-radius:12px; font-size:14px; line-height:1.5; white-space:pre-wrap; word-wrap:break-word; }
+  .msg.user { align-self:flex-end; background:var(--user-bubble); border-bottom-right-radius:3px; }
+  .msg.bot { align-self:flex-start; background:var(--bot-bubble); border:1px solid var(--border); border-bottom-left-radius:3px; }
+  .msg.error { align-self:flex-start; background:rgba(255,107,107,0.1); border:1px solid var(--danger); color:var(--danger); }
+
+  .empty-state { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--muted); text-align:center; gap:8px; padding:20px; }
+  .empty-state .big-dot { width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--accent2)); margin-bottom:10px; }
+  .empty-state h2 { margin:0; font-size:20px; color:var(--text); }
+  .empty-state p { margin:0; font-size:13px; max-width:360px; }
+
+  .input-area { padding:16px 20px 20px; border-top:1px solid var(--border); }
+  .input-box { display:flex; gap:10px; background:var(--panel2); border:1px solid var(--border); border-radius:12px; padding:8px 8px 8px 16px; align-items:flex-end; }
+  .input-box textarea { border:none; background:transparent; resize:none; max-height:160px; min-height:24px; padding:6px 0; }
+  .input-box textarea:focus { outline:none; }
+  .send-btn { background:var(--accent); color:white; border:none; width:38px; height:38px; border-radius:9px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .send-btn:hover { background:var(--accent2); }
+  .send-btn:disabled { opacity:0.4; cursor:not-allowed; }
+  .hint { font-size:11px; color:var(--muted); margin-top:8px; text-align:center; }
+  ::-webkit-scrollbar { width:8px; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="brand"><span class="dot"></span> Brett LLM Studio</div>
+    <div class="brand-sub">Server-Version · eigener Cloud-Server</div>
+    <button class="newchat-btn" id="newChatBtn">+ Neuer Chat</button>
+
+    <div class="section-label">Server-Adresse</div>
+    <div class="setting-row">
+      <input type="text" id="serverUrl" placeholder="https://xxxx.trycloudflare.com">
+    </div>
+    <div class="conn-status">
+      <span class="status-dot" id="connDot"></span>
+      <span id="connText">Nicht verbunden</span>
+    </div>
+    <button class="connect-btn" id="connectBtn">Verbinden</button>
+
+    <div class="section-label">KI-Modell</div>
+    <div class="setting-row">
+      <select id="modelSelect">
+        <option value="llama3.2:3b">Schnell & leicht (3B)</option>
+        <option value="phi3.5">Ausgewogen (Phi 3.5)</option>
+        <option value="llama3.1:8b">Stark (8B)</option>
+      </select>
+    </div>
+
+    <div class="section-label">System-Prompt</div>
+    <div class="setting-row">
+      <textarea id="systemPrompt">Du bist ein hilfreicher, präziser Assistent.</textarea>
+    </div>
+
+    <div class="section-label">Verlauf</div>
+    <div class="chat-list" id="chatList"></div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h1 id="chatTitle">Neuer Chat</h1>
+        <div class="sub">Brett LLM Studio</div>
+      </div>
+      <button class="clear-btn" id="clearBtn">Chat löschen</button>
+    </div>
+
+    <div class="messages" id="messages">
+      <div class="empty-state" id="emptyState">
+        <div class="big-dot"></div>
+        <h2>Willkommen bei Brett LLM Studio</h2>
+        <p>Trage links die Server-Adresse aus deinem Colab-Notebook ein und klicke auf "Verbinden", dann kannst du chatten.</p>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-box">
+        <textarea id="userInput" placeholder="Zuerst mit dem Server verbinden..." rows="1" disabled></textarea>
+        <button class="send-btn" id="sendBtn" title="Senden" disabled>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
+      </div>
+      <div class="hint">Server-Adresse ändert sich bei jedem Colab-Neustart – dann hier neu eintragen</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let conversations = [];
+  let activeId = null;
+  let serverBase = '';
+  let connected = false;
+
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  function newConversation() {
+    const conv = { id: uid(), title: 'Neuer Chat', messages: [] };
+    conversations.unshift(conv);
+    activeId = conv.id;
+    renderChatList();
+    renderMessages();
+  }
+  function getActive() { return conversations.find(c => c.id === activeId); }
+
+  function renderChatList() {
+    const list = document.getElementById('chatList');
+    list.innerHTML = '';
+    conversations.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'chat-item' + (c.id === activeId ? ' active' : '');
+      div.textContent = c.title;
+      div.onclick = () => { activeId = c.id; renderChatList(); renderMessages(); };
+      list.appendChild(div);
+    });
+  }
+
+  function renderMessages() {
+    const container = document.getElementById('messages');
+    const conv = getActive();
+    document.getElementById('chatTitle').textContent = conv ? conv.title : 'Neuer Chat';
+    container.innerHTML = '';
+    if (!conv || conv.messages.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = '<div class="big-dot"></div><h2>Willkommen bei Brett LLM Studio</h2><p>Trage links die Server-Adresse aus deinem Colab-Notebook ein und klicke auf "Verbinden", dann kannst du chatten.</p>';
+      container.appendChild(empty);
+      return;
+    }
+    conv.messages.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'msg ' + m.role;
+      div.textContent = m.content;
+      container.appendChild(div);
+    });
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function setConn(state, text) {
+    document.getElementById('connDot').className = 'status-dot ' + state;
+    document.getElementById('connText').textContent = text;
+  }
+
+  document.getElementById('connectBtn').addEventListener('click', async () => {
+    let url = document.getElementById('serverUrl').value.trim().replace(/\/$/, '');
+    if (!url) { setConn('error', 'Bitte Adresse eingeben'); return; }
+    setConn('checking', 'Verbinde …');
+    try {
+      const res = await fetch(url + '/api/tags');
+      if (!res.ok) throw new Error('Server antwortet nicht (Status ' + res.status + ')');
+      const data = await res.json();
+      serverBase = url;
+      connected = true;
+      setConn('ok', 'Verbunden');
+      document.getElementById('userInput').disabled = false;
+      document.getElementById('userInput').placeholder = 'Nachricht an Brett LLM Studio...';
+      document.getElementById('sendBtn').disabled = false;
+      if (conversations.length === 0) newConversation();
+    } catch (err) {
+      connected = false;
+      setConn('error', 'Fehler: ' + err.message);
+    }
+  });
+
+  async function sendMessage() {
+    if (!connected) return;
+    const input = document.getElementById('userInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    if (!getActive()) newConversation();
+    const conv = getActive();
+    if (conv.messages.length === 0) {
+      conv.title = text.length > 28 ? text.slice(0, 28) + '…' : text;
+    }
+    conv.messages.push({ role: 'user', content: text });
+    input.value = '';
+    input.style.height = 'auto';
+    renderChatList();
+    renderMessages();
+
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.disabled = true;
+
+    const model = document.getElementById('modelSelect').value;
+    const systemPrompt = document.getElementById('systemPrompt').value || 'Du bist ein hilfreicher Assistent.';
+    const chatMessages = [
+      { role: 'system', content: systemPrompt },
+      ...conv.messages.map(m => ({ role: m.role === 'bot' ? 'assistant' : 'user', content: m.content }))
+    ];
+
+    conv.messages.push({ role: 'bot', content: '' });
+    renderMessages();
+    const botMsg = conv.messages[conv.messages.length - 1];
+
+    try {
+      const res = await fetch(serverBase + '/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: model, messages: chatMessages, stream: true })
+      });
+      if (!res.ok || !res.body) throw new Error('Server-Fehler (Status ' + res.status + ')');
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const json = JSON.parse(line);
+            const delta = json?.message?.content || '';
+            botMsg.content += delta;
+            renderMessages();
+          } catch (e) { /* unvollständige Zeile ignorieren */ }
+        }
+      }
+      if (!botMsg.content.trim()) botMsg.content = '(keine Antwort erhalten)';
+    } catch (err) {
+      botMsg.role = 'error';
+      botMsg.content = 'Fehler bei der Anfrage: ' + err.message;
+    }
+    renderMessages();
+    sendBtn.disabled = false;
+  }
+
+  document.getElementById('sendBtn').addEventListener('click', sendMessage);
+  document.getElementById('userInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+  document.getElementById('userInput').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+  });
+  document.getElementById('newChatBtn')?.addEventListener('click', newConversation);
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    const conv = getActive();
+    if (conv) { conv.messages = []; conv.title = 'Neuer Chat'; renderChatList(); renderMessages(); }
+  });
+</script>
+
+</body>
+</html>
